@@ -19,6 +19,7 @@ import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.event.world.WorldUnloadEvent;
+import org.bukkit.inventory.EquipmentSlot;
 
 public class EventListener implements Listener {
     private final LastTouch plugin;
@@ -69,6 +70,13 @@ public class EventListener implements Listener {
                 return;
         }
         event.setCancelled(true);
+        try {
+            if (event.getHand() == EquipmentSlot.OFF_HAND) {
+                return;
+            }
+        } catch (NoSuchMethodError ignored) {
+            // event.getHand() might not exist earlier than 1.9
+        }
         LTChunk chunk = plugin.getChunk(blockToInspect.getChunk());
         if (chunk == null) {
             plugin.sendMessage(player, "The chunk that block is in is not available.");
