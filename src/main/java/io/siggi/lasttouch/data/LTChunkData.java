@@ -96,14 +96,7 @@ public class LTChunkData {
             info.count += 1;
         }
         List<UUIDInfo> list = new ArrayList<>(map.values());
-        list.sort((u1, u2) -> {
-            if (u1.count > u2.count)
-                return -1;
-            else if (u1.count < u2.count)
-                return 1;
-            else
-                return 0;
-        });
+        list.sort((u1, u2) -> Integer.compare(u2.count, u1.count));
         Map<UUID, Integer> uuidMap = new HashMap<>();
         for (int i = 0; i < list.size(); i++) {
             UUIDInfo info = list.get(i);
