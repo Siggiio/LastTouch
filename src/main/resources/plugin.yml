@@ -1,0 +1,16 @@
+name: LastTouch
+main: io.siggi.lasttouch.LastTouch
+version: ${project.version}
+author: Siggi
+description: The LastTouch plugin.
+depend: [ CubeCore, NBTTool ]
+api-version: 1.13
+commands:
+  lti:
+    description: Toggle LastTouch Inspect mode.
+    permission: lasttouch.inspect
+    usage: /<command>
+permissions:
+  lasttouch.inspect:
+    description: Allow the player to use the inspect command.
+    default: op
