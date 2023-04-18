@@ -77,7 +77,7 @@ public class LTChunkData {
                 long leastSignificant = IOUtil.readLong(in);
                 uuids[i] = new UUID(mostSignificant, leastSignificant);
             }
-            for (int i = 0; i < data.length; i++) {
+            for (int i = 0; i < this.data.length; i++) {
                 int user = (int) IOUtil.readVarInt(in);
                 if (user == 0L) continue;
                 long time = IOUtil.readVarInt(in);
