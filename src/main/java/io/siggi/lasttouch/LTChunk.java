@@ -1,8 +1,9 @@
 package io.siggi.lasttouch;
 
 import io.siggi.anvilregionformat.AnvilUtil;
-import io.siggi.anvilregionformat.ChunkCoordinate;
 import io.siggi.anvilregionformat.ChunkData;
+import io.siggi.lasttouch.coordinate.LTBlockCoordinate;
+import io.siggi.lasttouch.coordinate.LTChunkCoordinate;
 import io.siggi.lasttouch.data.LTBlockData;
 import io.siggi.lasttouch.data.LTChunkData;
 import java.io.IOException;
@@ -10,38 +11,39 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.bukkit.Chunk;
-import org.bukkit.World;
 import org.bukkit.block.Block;
 
 public class LTChunk {
     private final LastTouch plugin;
-    private final World bukkitWorld;
     private final LTWorld world;
-    private final Chunk chunk;
-    private final ChunkCoordinate chunkCoordinate;
+    public final LTChunkCoordinate chunkCoordinate;
     private boolean hasCachedData = false;
     private long lastRead = 0L;
     private boolean unloaded = false;
-    private final Map<Block, LTBlockData> changes = new HashMap<>();
+    private final Map<LTBlockCoordinate, LTBlockData> changes = new HashMap<>();
     private long lastChange = 0L;
 
-    LTChunk(LastTouch plugin, World bukkitWorld, LTWorld world, Chunk chunk) {
+    LTChunk(LastTouch plugin, LTWorld world, LTChunkCoordinate chunkCoordinate) {
         this.plugin = plugin;
-        this.bukkitWorld = bukkitWorld;
         this.world = world;
-        this.chunk = chunk;
-        this.chunkCoordinate = new ChunkCoordinate(chunk.getX(), chunk.getZ());
+        this.chunkCoordinate = chunkCoordinate;
     }
 
-    void ltTick(long time) {
+    boolean ltTick(long time) {
         if (changes.isEmpty() || time - lastRead <= 30000L || time - lastChange <= 30000L) {
-            return;
+            return false;
         }
-        save();
+        unload();
+        return true;
     }
 
     public CompletableFuture<LTBlockData> getData(Block block) {
+        return getData(new LTBlockCoordinate(block));
+    }
+
+    public CompletableFuture<LTBlockData> getData(LTBlockCoordinate block) {
+        if (unloaded)
+            throw new IllegalStateException("This LTChunk instance has been unloaded. Do not cache LTChunk instances, obtain a new one for each use.");
         lastRead = System.currentTimeMillis();
         if (hasCachedData) {
             LTBlockData ltBlockData = changes.get(block);
@@ -50,7 +52,7 @@ public class LTChunk {
         CompletableFuture<LTBlockData> result = new CompletableFuture<>();
         plugin.getWorkerExecutor().execute(() -> {
             try {
-                ChunkData read = world.anvilRegion.read(chunkCoordinate);
+                ChunkData read = world.anvilRegion.read(chunkCoordinate.toAnvilChunkCoordinate());
                 LTChunkData chunkData = newLTChunkData();
                 if (read != null) {
                     chunkData.deserialize(read.getDecompressedData());
@@ -78,20 +80,24 @@ public class LTChunk {
         return result;
     }
 
-    public void recordChange(Block block, UUID player) {
+    public void recordChange(LTBlockCoordinate block, UUID player) {
+        if (unloaded)
+            throw new IllegalStateException("This LTChunk instance has been unloaded. Do not cache LTChunk instances, obtain a new one for each use.");
         long now = System.currentTimeMillis();
         lastChange = System.currentTimeMillis();
         changes.put(block, new LTBlockData(player, now));
     }
 
-    void save() {
+    public void save() {
+        if (unloaded)
+            throw new IllegalStateException("This LTChunk instance has been unloaded. Do not cache LTChunk instances, obtain a new one for each use.");
         if (changes.isEmpty()) return;
         if (lastChange == 0L) {
             hasCachedData = false;
             changes.clear();
             return;
         }
-        Map<Block, LTBlockData> changesToWrite = new HashMap<>(changes);
+        Map<LTBlockCoordinate, LTBlockData> changesToWrite = new HashMap<>(changes);
         hasCachedData = false;
         changes.clear();
         lastRead = 0L;
@@ -99,7 +105,7 @@ public class LTChunk {
         plugin.getWorkerExecutor().execute(() -> {
             try {
                 LTChunkData chunkData = newLTChunkData();
-                ChunkData read = world.anvilRegion.read(chunkCoordinate);
+                ChunkData read = world.anvilRegion.read(chunkCoordinate.toAnvilChunkCoordinate());
                 if (read != null) {
                     try {
                         chunkData.deserialize(read.getDecompressedData());
@@ -109,7 +115,7 @@ public class LTChunk {
                 chunkData.merge(changesToWrite);
                 byte[] data = chunkData.serialize();
                 byte[] compressedData = AnvilUtil.zlibCompress(data);
-                world.anvilRegion.write(chunkCoordinate, ChunkData.create(compressedData));
+                world.anvilRegion.write(chunkCoordinate.toAnvilChunkCoordinate(), ChunkData.create(compressedData));
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -117,12 +123,12 @@ public class LTChunk {
     }
 
     private LTChunkData newLTChunkData() {
-        return new LTChunkData(bukkitWorld, world, chunk, this);
+        return new LTChunkData(world.minHeight, world.maxHeight, this);
     }
 
-    public void unload() {
+    void unload() {
         if (unloaded) return;
-        unloaded = true;
         save();
+        unloaded = true;
     }
 }

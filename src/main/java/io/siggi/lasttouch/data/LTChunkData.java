@@ -1,63 +1,57 @@
 package io.siggi.lasttouch.data;
 
 import io.siggi.lasttouch.LTChunk;
-import io.siggi.lasttouch.LTWorld;
+import io.siggi.lasttouch.coordinate.LTBlockCoordinate;
 import io.siggi.lasttouch.util.IOUtil;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.bukkit.Chunk;
-import org.bukkit.World;
-import org.bukkit.block.Block;
 
 public class LTChunkData {
-    private final World bukkitWorld;
-    private final LTWorld world;
-    private final Chunk bukkitChunk;
     private final LTChunk chunk;
     public final LTBlockData[] data;
     private final int minHeight;
     private final int maxHeight;
     private final int totalHeight;
 
-    public LTChunkData(World bukkitWorld, LTWorld world, Chunk bukkitChunk, LTChunk chunk) {
-        this.bukkitWorld = bukkitWorld;
-        this.world = world;
-        this.bukkitChunk = bukkitChunk;
+    public LTChunkData(int minHeight, int maxHeight, LTChunk chunk) {
         this.chunk = chunk;
-        minHeight = bukkitWorld.getMinHeight();
-        maxHeight = bukkitWorld.getMaxHeight();
+        this.minHeight = minHeight;
+        this.maxHeight = maxHeight;
         totalHeight = maxHeight - minHeight;
         data = new LTBlockData[16 * 16 * totalHeight];
     }
 
-    public void merge(Map<Block, LTBlockData> map) {
-        for (Map.Entry<Block, LTBlockData> entry : map.entrySet()) {
+    public void merge(Map<LTBlockCoordinate, LTBlockData> map) {
+        for (Map.Entry<LTBlockCoordinate, LTBlockData> entry : map.entrySet()) {
             int index = getIndex(entry.getKey());
             if (index < 0 || index >= data.length) continue;
             data[index] = entry.getValue();
         }
     }
 
-    public Block fromIndex(int index) {
+    public LTBlockCoordinate fromIndex(int index) {
         int x = index & 0xF;
         int z = (index >>> 4) & 0xF;
         int y = index >>> 8;
         y += minHeight;
-        return bukkitChunk.getBlock(x, y, z);
+        return new LTBlockCoordinate(
+            chunk.chunkCoordinate.world,
+            (chunk.chunkCoordinate.x * 16) + x,
+            y,
+            (chunk.chunkCoordinate.z * 16) + z
+        );
     }
 
-    private int getIndex(Block block) {
-        int x = block.getX() & 0xf;
-        int y = block.getY();
-        int z = block.getZ() & 0xf;
+    private int getIndex(LTBlockCoordinate block) {
+        int x = block.x & 0xf;
+        int y = block.y;
+        int z = block.z & 0xf;
         return getIndex(x, y, z);
     }
 

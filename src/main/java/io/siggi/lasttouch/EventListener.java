@@ -1,5 +1,7 @@
 package io.siggi.lasttouch;
 
+import io.siggi.lasttouch.coordinate.LTBlockCoordinate;
+import io.siggi.lasttouch.coordinate.LTChunkCoordinate;
 import org.bukkit.ChatColor;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -15,7 +17,6 @@ import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerBucketFillEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.event.world.WorldUnloadEvent;
@@ -30,22 +31,17 @@ public class EventListener implements Listener {
 
     @EventHandler
     public void worldLoaded(WorldLoadEvent event) {
-        plugin.addWorld(event.getWorld());
+        plugin.addWorld(event.getWorld().getName(), event.getWorld().getMinHeight(), event.getWorld().getMaxHeight());
     }
 
     @EventHandler
     public void worldUnloaded(WorldUnloadEvent event) {
-        plugin.removeWorld(event.getWorld());
-    }
-
-    @EventHandler
-    public void chunkLoaded(ChunkLoadEvent event) {
-        plugin.getWorld(event.getWorld()).addChunk(event.getChunk());
+        plugin.doRemoveWorld(event.getWorld().getName());
     }
 
     @EventHandler
     public void chunkUnloaded(ChunkUnloadEvent event) {
-        plugin.getWorld(event.getWorld()).removeChunk(event.getChunk());
+        plugin.getWorld(event.getWorld().getName()).removeChunk(new LTChunkCoordinate(event.getChunk()));
     }
 
     @EventHandler
@@ -147,7 +143,7 @@ public class EventListener implements Listener {
     private void change(Block block, Player player) {
         LTChunk chunk = plugin.getChunk(block.getChunk());
         if (chunk != null) {
-            chunk.recordChange(block, player.getUniqueId());
+            chunk.recordChange(new LTBlockCoordinate(block), player.getUniqueId());
         }
     }
 }

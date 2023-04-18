@@ -1,61 +1,56 @@
 package io.siggi.lasttouch;
 
 import io.siggi.anvilregionformat.AnvilRegion;
+import io.siggi.lasttouch.coordinate.LTChunkCoordinate;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.bukkit.Chunk;
-import org.bukkit.World;
 
 public class LTWorld {
     private final LastTouch plugin;
-    private final World world;
-    private final Map<Chunk, LTChunk> chunks = new HashMap<>();
+    final String world;
+    final int minHeight;
+    final int maxHeight;
+    private final Map<LTChunkCoordinate, LTChunk> chunks = new HashMap<>();
     private boolean unloaded = false;
     AnvilRegion anvilRegion;
 
-    LTWorld(LastTouch plugin, World world) {
+    LTWorld(LastTouch plugin, String world, int minHeight, int maxHeight) {
         this.plugin = plugin;
+        if (world == null) throw new NullPointerException();
         this.world = world;
-        File file = new File(new File(world.getName()), "lasttouch");
+        this.minHeight = minHeight;
+        this.maxHeight = maxHeight;
+        File file = new File(new File(world), "lasttouch");
         anvilRegion = AnvilRegion.open(file);
-        for (Chunk chunk : world.getLoadedChunks()) {
-            addChunk(chunk);
-        }
     }
 
     void ltTick(long time) {
-        for (LTChunk chunk : chunks.values()) {
-            chunk.ltTick(time);
-        }
+        chunks.values().removeIf(chunk -> chunk.ltTick(time));
     }
 
-    void addChunk(Chunk chunk) {
-        if (unloaded) return;
-        LTChunk ltChunk = chunks.get(chunk);
-        if (ltChunk != null) return;
-        ltChunk = new LTChunk(plugin, world, this, chunk);
-        chunks.put(chunk, ltChunk);
-    }
-
-    void removeChunk(Chunk chunk) {
-        LTChunk ltChunk = chunks.get(chunk);
+    void removeChunk(LTChunkCoordinate chunk) {
+        LTChunk ltChunk = chunks.remove(chunk);
         if (ltChunk == null) return;
         ltChunk.unload();
-        chunks.remove(chunk);
     }
 
     public LTChunk getChunk(Chunk chunk) {
-        return chunks.get(chunk);
+        return getChunk(new LTChunkCoordinate(chunk));
+    }
+
+    public LTChunk getChunk(LTChunkCoordinate chunk) {
+        return chunks.computeIfAbsent(chunk, c -> new LTChunk(plugin, this, c));
     }
 
     public void unload() {
         if (unloaded) return;
         unloaded = true;
-        List<Chunk> chunks = new ArrayList<>(this.chunks.keySet());
-        for (Chunk chunk : chunks) {
+        List<LTChunkCoordinate> chunks = new ArrayList<>(this.chunks.keySet());
+        for (LTChunkCoordinate chunk : chunks) {
             removeChunk(chunk);
         }
         plugin.getWorkerExecutor().execute(() -> {
@@ -64,5 +59,11 @@ public class LTWorld {
             } catch (Exception e) {
             }
         });
+    }
+
+    public void purge() {
+        for (LTChunk chunk : chunks.values()) {
+            chunk.save();
+        }
     }
 }

@@ -29,7 +29,7 @@ public class LastTouch extends JavaPlugin {
         getCommand("lti").setExecutor(new LTICommand(this));
         getServer().getPluginManager().registerEvents(new EventListener(this), this);
         for (World world : getServer().getWorlds()) {
-            addWorld(world);
+            addWorld(world.getName(), world.getMinHeight(), world.getMaxHeight());
         }
         new BukkitRunnable() {
             @Override
@@ -41,9 +41,9 @@ public class LastTouch extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        List<World> worlds = new ArrayList<>(this.worlds.keySet());
-        for (World world : worlds) {
-            removeWorld(world);
+        List<String> worlds = new ArrayList<>(this.worlds.keySet());
+        for (String world : worlds) {
+            doRemoveWorld(world);
         }
         inspectors.clear();
         try {
@@ -59,17 +59,23 @@ public class LastTouch extends JavaPlugin {
         }
     }
 
-    private final Map<World, LTWorld> worlds = new HashMap<>();
+    private final Map<String, LTWorld> worlds = new HashMap<>();
     private final Set<Player> inspectors = new HashSet<>();
 
-    void addWorld(World world) {
+    public void addWorld(String world, int minHeight, int maxHeight) {
         LTWorld ltWorld = worlds.get(world);
         if (ltWorld != null) return;
-        ltWorld = new LTWorld(this, world);
+        ltWorld = new LTWorld(this, world, minHeight, maxHeight);
         worlds.put(world, ltWorld);
     }
 
-    void removeWorld(World world) {
+    public void removeWorld(String world) {
+        if (getServer().getWorld(world) != null)
+            return;
+        doRemoveWorld(world);
+    }
+
+    void doRemoveWorld(String world) {
         LTWorld ltWorld = worlds.get(world);
         if (ltWorld == null) return;
         ltWorld.unload();
@@ -77,11 +83,15 @@ public class LastTouch extends JavaPlugin {
     }
 
     public LTWorld getWorld(World world) {
+        return getWorld(world.getName());
+    }
+
+    public LTWorld getWorld(String world) {
         return worlds.get(world);
     }
 
     public LTChunk getChunk(Chunk chunk) {
-        LTWorld world = getWorld(chunk.getWorld());
+        LTWorld world = getWorld(chunk.getWorld().getName());
         if (world == null) return null;
         return world.getChunk(chunk);
     }
