@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 
 public class LTWorld {
@@ -24,7 +25,7 @@ public class LTWorld {
         this.world = world;
         this.minHeight = minHeight;
         this.maxHeight = maxHeight;
-        File file = new File(new File(world), "lasttouch");
+        File file = new File(new File(Bukkit.getWorldContainer(), world), "lasttouch");
         anvilRegion = AnvilRegion.open(file);
     }
 
